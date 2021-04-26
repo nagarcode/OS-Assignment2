@@ -26,52 +26,125 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+void sigkill_handler()
+{
+  struct proc *p = myproc();
+  p->killed = 1;
+}
+void sigstop_handler()
+{
+  struct proc *p = myproc();
+  p->frozen = 1; //TODO: continue handling this
+}
+void sigcont_handler()
+{
+  // struct proc *p = myproc();
+  //TODO implement
+}
+
+// Kill the process with the given pid.
+// The victim won't exit until it tries to return
+// to user space (see usertrap() in trap.c).
+int kill(int pid, int signum)
+{
+  struct proc *p;
+  if (signum >= 32 || signum < 0)
+    return -1;
+  uint32 single_sig_mask = 1 << signum;
+  for (p = proc; p < &proc[NPROC]; p++)
+  {
+    acquire(&p->lock);
+    if (p->pid == pid)
+    {
+      if (p->signal_mask & single_sig_mask)
+      {
+        release(&p->lock);
+        return 0;
+      }
+      p->signal_mask |= single_sig_mask;
+      if (p->state == SLEEPING)
+      {
+        // Wake process from sleep().
+        p->state = RUNNABLE;
+      }
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+int previousKill(int pid)
+{
+  struct proc *p;
+  for (p = proc; p < &proc[NPROC]; p++)
+  {
+    acquire(&p->lock);
+    if (p->pid == pid)
+    {
+      p->killed = 1;
+      if (p->state == SLEEPING)
+      {
+        // Wake process from sleep().
+        p->state = RUNNABLE;
+      }
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
 void restore_trapframe(struct proc *p)
 {
-  struct trapframe backup;
-  either_copyin(&backup, 1, (uint64)p->user_trapframe_backup, sizeof(struct trapframe));
-  p->trapframe->a0 = backup.a0;
-  p->trapframe->a1 = backup.a1;
-  p->trapframe->a2 = backup.a2;
-  p->trapframe->a3 = backup.a3;
-  p->trapframe->a4 = backup.a4;
-  p->trapframe->a5 = backup.a5;
-  p->trapframe->a6 = backup.a6;
-  p->trapframe->a7 = backup.a7;
-  // p->trapframe->epc = backup.epc; //TODO WTF??
-  // p->trapframe->gp = backup.gp;
-  // p->trapframe->kernel_hartid = backup.kernel_hartid;
-  // p->trapframe->kernel_satp = backup.kernel_satp;
-  // p->trapframe->kernel_sp = backup.kernel_sp;
-  // p->trapframe->kernel_trap = backup.kernel_trap;
-  // p->trapframe->ra = backup.ra;
-  // p->trapframe->s0 = backup.s0;
-  // p->trapframe->s10 = backup.s10;
-  // p->trapframe->s11 = backup.s11;
-  p->trapframe->s1 = backup.s1;
-  p->trapframe->s2 = backup.s2;
-  p->trapframe->s3 = backup.s3;
-  p->trapframe->s4 = backup.s4;
-  p->trapframe->s5 = backup.s5;
-  p->trapframe->s6 = backup.s6;
-  p->trapframe->s7 = backup.s7;
-  p->trapframe->s8 = backup.s8;
-  p->trapframe->s9 = backup.s9;
-  p->trapframe->sp = backup.sp;
-  p->trapframe->t0 = backup.t0;
-  p->trapframe->t1 = backup.t1;
-  p->trapframe->t2 = backup.t2;
-  p->trapframe->t3 = backup.t3;
-  p->trapframe->t4 = backup.t4;
-  p->trapframe->t5 = backup.t5;
-  p->trapframe->t6 = backup.t6;
-  p->trapframe->tp = backup.tp;
+  // struct trapframe backup;
+  // either_copyin(p->trapframe, 0, (uint64)p->user_trapframe_backup, sizeof(struct trapframe));
+  memmove(p->trapframe, p->user_trapframe_backup, sizeof(struct trapframe));
+  // either_copyin(&backup, 1, (uint64)p->user_trapframe_backup, sizeof(struct trapframe));
+  // p->trapframe->a0 = backup.a0;
+  // p->trapframe->a1 = backup.a1;
+  // p->trapframe->a2 = backup.a2;
+  // p->trapframe->a3 = backup.a3;
+  // p->trapframe->a4 = backup.a4;
+  // p->trapframe->a5 = backup.a5;
+  // p->trapframe->a6 = backup.a6;
+  // p->trapframe->a7 = backup.a7;
+  // // p->trapframe->epc = backup.epc; //TODO WTF??
+  // // p->trapframe->gp = backup.gp;
+  // // p->trapframe->kernel_hartid = backup.kernel_hartid;
+  // // p->trapframe->kernel_satp = backup.kernel_satp;
+  // // p->trapframe->kernel_sp = backup.kernel_sp;
+  // // p->trapframe->kernel_trap = backup.kernel_trap;
+  // // p->trapframe->ra = backup.ra;
+  // // p->trapframe->s0 = backup.s0;
+  // // p->trapframe->s10 = backup.s10;
+  // // p->trapframe->s11 = backup.s11;
+  // p->trapframe->s1 = backup.s1;
+  // p->trapframe->s2 = backup.s2;
+  // p->trapframe->s3 = backup.s3;
+  // p->trapframe->s4 = backup.s4;
+  // p->trapframe->s5 = backup.s5;
+  // p->trapframe->s6 = backup.s6;
+  // p->trapframe->s7 = backup.s7;
+  // p->trapframe->s8 = backup.s8;
+  // p->trapframe->s9 = backup.s9;
+  // p->trapframe->sp = backup.sp;
+  // p->trapframe->t0 = backup.t0;
+  // p->trapframe->t1 = backup.t1;
+  // p->trapframe->t2 = backup.t2;
+  // p->trapframe->t3 = backup.t3;
+  // p->trapframe->t4 = backup.t4;
+  // p->trapframe->t5 = backup.t5;
+  // p->trapframe->t6 = backup.t6;
+  // p->trapframe->tp = backup.tp;
 }
 int sigret()
 {
   struct proc *p = myproc();
   //TODO: restore signal mask?
   restore_trapframe(p);
+  //TODO Turn off the flag indicates a user space signal handling for blocking incoming signals at this time.
   return 0;
 }
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
@@ -85,8 +158,9 @@ int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
     return -1;
   if (oldact)
   {
+    void *handler = (void *)p->signal_handlers[signum];
     printf("getting old handler and mask values from kernel to user\n");
-    sanity = either_copyout(1, (uint64)oldact->sa_handler, p->signal_handlers[signum], sizeof(sighandler_type)); //TODO this does not work
+    sanity = either_copyout(1, (uint64)oldact->sa_handler, handler, sizeof(sighandler_type)); //TODO this does not work
     if (sanity < 0)
       panic("Copyout failed in sigaction\n");
     sanity = either_copyout(1, oldact->sigmask, &p->handler_masks[signum], sizeof(uint32));
@@ -261,7 +335,7 @@ found:
   //*** Added Code - SIGS ***
   init_handlers(p);
   init_handler_masks(p);
-
+  p->frozen = 0;
   //*** /Added Code - SIGS ***
 
   return p;
@@ -453,7 +527,7 @@ int fork(void)
   //*** Added Code***
 
   inherit_handlers_and_masks(p, np);
-
+  np->frozen = 0;
   //*** /Added Code***
   return pid;
 }
@@ -597,16 +671,31 @@ void scheduler(void)
       acquire(&p->lock);
       if (p->state == RUNNABLE)
       {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+        if (p->frozen)
+        {
+          if (p->pending_signals & (1 << SIGCONT))
+          {
+            p->frozen = 0;
+          }
+          if (p->pending_signals & (1 << SIGKILL))
+          {
+            p->pending_signals = 1 << SIGKILL;
+            p->frozen = 0;
+          }
+        }
+        if (p->frozen == 0)
+        {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+        }
       }
       release(&p->lock);
     }
@@ -718,33 +807,6 @@ void wakeup(void *chan)
       release(&p->lock);
     }
   }
-}
-
-// Kill the process with the given pid.
-// The victim won't exit until it tries to return
-// to user space (see usertrap() in trap.c).
-int kill(int pid, int signum)
-{
-  struct proc *p;
-  if (signum >= 32 || signum < 0)
-    return -1;
-  for (p = proc; p < &proc[NPROC]; p++)
-  {
-    acquire(&p->lock);
-    if (p->pid == pid)
-    {
-      p->killed = 1;
-      if (p->state == SLEEPING)
-      {
-        // Wake process from sleep().
-        p->state = RUNNABLE;
-      }
-      release(&p->lock);
-      return 0;
-    }
-    release(&p->lock);
-  }
-  return -1;
 }
 
 // Copy to either a user address, or kernel address,

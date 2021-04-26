@@ -6,9 +6,9 @@ int main(int argc, char **argv)
 {
   int i;
 
-  if (argc < 2)
+  if (argc < 2 || argc % 2 != 0)
   {
-    fprintf(2, "usage: kill pid...\n");
+    fprintf(2, "usage: kill <pid, signum> *\n");
     exit(1);
   }
   for (i = 1; i < argc; i = i + 2)

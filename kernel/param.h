@@ -15,4 +15,4 @@
 #define SIG_IGN      1
 #define SIGKILL      9
 #define SIGSTOP      17
-#define SICONT       19
+#define SIGCONT       19

@@ -21,7 +21,7 @@ void testSigaction()
     oldact = malloc(sizeof(struct sigaction));
     sigact->sigmask = 1 << 5;
     sigact->sa_handler = &handler2;
-    printf("Sending mask: %d\nSending hanler address: %d\n", sigact->sigmask, sigact->sa_handler);
+    printf("Sending mask: %d\nSending handler address: %d\n", sigact->sigmask, sigact->sa_handler);
     sigaction(signum, sigact, oldact);
 }
 void testSigRet()
@@ -30,10 +30,11 @@ void testSigRet()
 }
 void testKill()
 {
-    kill(1,2);
+    kill(1, 2);
 }
 int main(int argc, char *argv[])
 {
-    testKill();
+    testSigRet();
+    // testSigaction();
     exit(0);
 }

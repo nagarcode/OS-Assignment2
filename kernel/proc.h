@@ -128,4 +128,5 @@ struct proc
   sighandler_type signal_handlers[32];
   uint32 handler_masks[32];
   struct trapframe *user_trapframe_backup;
+  int frozen;
 };
